@@ -49,11 +49,4 @@ for epoch in range(1):
             acc = correct / total * 100
             print(f"[Batch {batch_idx}] Loss: {loss.item():.4f} | Acc: {acc:.2f}%")
 
-    compute_gate_activation(model)
     print(f"Epoch {epoch+1} complete. Train Accuracy: {correct/total:.4f}")
-
-    # Log gate values
-    print("\nGatedBlock values:")
-    for name, module in model.named_modules():
-        if hasattr(module, "gate"):
-            print(f"{name}: gate = {module.gate.item():.4f}")
