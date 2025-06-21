@@ -8,7 +8,6 @@ class GatedBlock(nn.Module):
         self.block = block
         self.use_controller = use_controller
 
-        # Add downsampling if needed
         self.downsample = block.downsample if hasattr(block, "downsample") and block.downsample else None
 
         if use_controller:

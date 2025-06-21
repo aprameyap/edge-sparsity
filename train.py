@@ -37,6 +37,13 @@ for epoch in range(1):
         correct += pred.eq(labels).sum().item()
         total += labels.size(0)
 
+        sparsity_penalty = 0
+        for module in model.modules():
+            if hasattr(module, "gate"):
+                sparsity_penalty += torch.abs(torch.sigmoid(module.gate)).mean()
+        
+        loss += loss + (0.01 * sparsity_penalty)
+
         # Log every 100 batches
         if batch_idx % 100 == 0:
             acc = correct / total * 100
@@ -46,7 +53,7 @@ for epoch in range(1):
     print(f"Epoch {epoch+1} complete. Train Accuracy: {correct/total:.4f}")
 
     # Log gate values
-    print("\n GatedBlock values:")
+    print("\nGatedBlock values:")
     for name, module in model.named_modules():
         if hasattr(module, "gate"):
             print(f"{name}: gate = {module.gate.item():.4f}")
