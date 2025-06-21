@@ -1,30 +1,29 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
+from models.controller import GateController
 
 class GatedBlock(nn.Module):
     def __init__(self, block: nn.Module, use_controller=False):
         super().__init__()
         self.block = block
+        self.downsample = block.downsample if hasattr(block, "downsample") and block.downsample else None
         self.use_controller = use_controller
 
-        self.downsample = block.downsample if hasattr(block, "downsample") and block.downsample else None
-
         if use_controller:
-            self.controller = nn.Sequential(
-                nn.AdaptiveAvgPool2d(1),
-                nn.Flatten(),
-                nn.Linear(block.conv1.in_channels, 1)
-            )
+            self.controller = GateController(block.conv1.in_channels)
         else:
-            self.gate = nn.Parameter(torch.tensor([1.0]))  # Learnable scalar
+            self.gate = nn.Parameter(torch.tensor([1.0]))
 
     def forward(self, x):
         residual = x if self.downsample is None else self.downsample(x)
+
         if self.use_controller:
-            gate_value = torch.sigmoid(self.controller(x))
+            gate_value = self.controller(x)
+            gate_value = gate_value.view(-1, 1, 1, 1)
         else:
             gate_value = torch.sigmoid(self.gate)
+
         return gate_value * self.block(x) + (1 - gate_value) * residual
 
 

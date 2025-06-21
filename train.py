@@ -16,7 +16,7 @@ transform = transforms.Compose([
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 trainloader = DataLoader(trainset, batch_size=64, shuffle=True)
 
-model = DynamicResNet18(use_controller=False).to(device)
+model = DynamicResNet18(use_controller=True).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
