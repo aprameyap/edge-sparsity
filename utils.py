@@ -1,5 +1,6 @@
 import torch
 from models.dynamic_resnet import GatedBlock 
+from fvcore.nn import FlopCountAnalysis
 
 def log_gate_usage(model):
     usage = {}
@@ -11,6 +12,11 @@ def log_gate_usage(model):
     print("Gate usage per block:")
     for name, val in usage.items():
         print(f"  {name}: {val:.4f}")
+
+def compute_flops(model, input_res=(3, 32, 32)):
+    dummy_input = torch.randn(1, *input_res)
+    flops = FlopCountAnalysis(model, dummy_input)
+    return flops.total(), flops.by_module()
 
 # Deprecated, as this was used for static gates 
 def compute_gate_activation(model):

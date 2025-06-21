@@ -4,7 +4,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from models.dynamic_resnet import DynamicResNet18
-from utils import log_gate_usage
+from utils import log_gate_usage, compute_flops
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -63,4 +63,12 @@ for epoch in range(3):
     print(f"Updated Gumbel temperature (tau): {new_tau:.4f}")
 
     log_gate_usage(model)
+
+    if epoch == 0:
+        model.eval()
+        total_flops, flops_by_module = compute_flops(model)
+        print(f"[FLOPs] Total: {total_flops/1e6:.2f} MFLOPs")
+        for name, val in flops_by_module.items():
+            if "block" in name or "fc" in name:
+                print(f"[FLOPs] {name}: {val/1e6:.2f} MFLOPs")
 
