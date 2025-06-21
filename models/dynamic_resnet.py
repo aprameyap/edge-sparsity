@@ -11,6 +11,7 @@ class GatedBlock(nn.Module):
         self.downsample = block.downsample if hasattr(block, "downsample") and block.downsample else None
         self.use_controller = use_controller
         self.tau = tau
+        self.gate_history = []
 
         if use_controller:
             self.controller = nn.Sequential(
@@ -24,10 +25,11 @@ class GatedBlock(nn.Module):
         residual = x if self.downsample is None else self.downsample(x)
 
         if self.use_controller:
-            logits = self.controller[0](x)  # GateController returns (B, 1)
-            logits = self.controller[1](logits)  # Project to 2-class logits (B, 2)
+            logits = self.controller[0](x)  # (B, 1)
+            logits = self.controller[1](logits)  # (B, 2)
             gate = gumbel_softmax(logits, tau=self.tau, hard=True)[:, 1:2]  # Use 2nd class for "activate"
-            gate = gate.view(-1, 1, 1, 1)  # Shape match
+            gate = gate.view(-1, 1, 1, 1)
+            self.gate_history.append(gate.mean().item())
         else:
             gate = torch.sigmoid(self.gate)
 

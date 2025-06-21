@@ -1,4 +1,16 @@
 import torch
+from models.dynamic_resnet import GatedBlock 
+
+def log_gate_usage(model):
+    usage = {}
+    for name, module in model.named_modules():
+        if isinstance(module, GatedBlock) and hasattr(module, "gate_history"):
+            if module.gate_history:
+                usage[name] = sum(module.gate_history) / len(module.gate_history)
+                module.gate_history = []  # reset for next epoch
+    print("Gate usage per block:")
+    for name, val in usage.items():
+        print(f"  {name}: {val:.4f}")
 
 # Deprecated, as this was used for static gates 
 def compute_gate_activation(model):

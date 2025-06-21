@@ -4,6 +4,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from models.dynamic_resnet import DynamicResNet18
+from utils import log_gate_usage
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -60,3 +61,6 @@ for epoch in range(3):
     new_tau = get_tau(epoch + 1)
     set_tau(model, new_tau)
     print(f"Updated Gumbel temperature (tau): {new_tau:.4f}")
+
+    log_gate_usage(model)
+
