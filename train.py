@@ -15,14 +15,28 @@ transform = transforms.Compose([
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 trainloader = DataLoader(trainset, batch_size=64, shuffle=True)
 
-model = DynamicResNet18(use_controller=True, tau=1.0).to(device)
+initial_tau = 1.0
+final_tau = 0.1
+anneal_rate = 0.95
+
+def get_tau(epoch):
+    return max(final_tau, initial_tau * (anneal_rate ** epoch))
+
+def set_tau(model, new_tau):
+    for layer in [model.layer1, model.layer2, model.layer3, model.layer4]:
+        for block in layer:
+            if hasattr(block, 'tau'):
+                block.tau = new_tau
+
+model = DynamicResNet18(use_controller=True, tau=initial_tau).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-for epoch in range(1):
+for epoch in range(3):
     print(f"\nStarting Epoch {epoch+1}")
     model.train()
     total, correct = 0, 0
+
     for batch_idx, (images, labels) in enumerate(trainloader):
         images, labels = images.to(device), labels.to(device)
 
@@ -36,15 +50,13 @@ for epoch in range(1):
         correct += pred.eq(labels).sum().item()
         total += labels.size(0)
 
-        # sparsity_penalty = 0
-        # for module in model.modules():
-        #     if hasattr(module, "gate"):
-        #         sparsity_penalty += torch.abs(torch.sigmoid(module.gate)).mean()
-        # loss += loss + (0.01 * sparsity_penalty)
-
-        # Log every 100 batches
         if batch_idx % 100 == 0:
             acc = correct / total * 100
             print(f"[Batch {batch_idx}] Loss: {loss.item():.4f} | Acc: {acc:.2f}%")
 
-    print(f"Epoch {epoch+1} complete. Train Accuracy: {correct/total:.4f}")
+    acc = correct / total
+    print(f"Epoch {epoch+1} complete. Train Accuracy: {acc:.4f}")
+
+    new_tau = get_tau(epoch + 1)
+    set_tau(model, new_tau)
+    print(f"Updated Gumbel temperature (tau): {new_tau:.4f}")
