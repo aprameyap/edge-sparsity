@@ -4,7 +4,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from models.dynamic_resnet import DynamicResNet18
-from utils import compute_gate_activation
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

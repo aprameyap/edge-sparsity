@@ -1,6 +1,6 @@
 import torch
 
-# Deprecated, as this was used for static gates
+# Deprecated, as this was used for static gates 
 def compute_gate_activation(model):
     gate_values = []
     for module in model.modules():
