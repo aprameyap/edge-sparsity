@@ -4,6 +4,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from models.dynamic_resnet import DynamicResNet18
+from utils import compute_gate_activation
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -41,6 +42,7 @@ for epoch in range(1):
             acc = correct / total * 100
             print(f"[Batch {batch_idx}] Loss: {loss.item():.4f} | Acc: {acc:.2f}%")
 
+    compute_gate_activation(model)
     print(f"Epoch {epoch+1} complete. Train Accuracy: {correct/total:.4f}")
 
     # Log gate values
