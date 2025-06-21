@@ -15,7 +15,7 @@ transform = transforms.Compose([
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 trainloader = DataLoader(trainset, batch_size=64, shuffle=True)
 
-model = DynamicResNet18(use_controller=True).to(device)
+model = DynamicResNet18(use_controller=True, tau=1.0).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -36,12 +36,11 @@ for epoch in range(1):
         correct += pred.eq(labels).sum().item()
         total += labels.size(0)
 
-        sparsity_penalty = 0
-        for module in model.modules():
-            if hasattr(module, "gate"):
-                sparsity_penalty += torch.abs(torch.sigmoid(module.gate)).mean()
-        
-        loss += loss + (0.01 * sparsity_penalty)
+        # sparsity_penalty = 0
+        # for module in model.modules():
+        #     if hasattr(module, "gate"):
+        #         sparsity_penalty += torch.abs(torch.sigmoid(module.gate)).mean()
+        # loss += loss + (0.01 * sparsity_penalty)
 
         # Log every 100 batches
         if batch_idx % 100 == 0:
