@@ -4,7 +4,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from models.dynamic_resnet import DynamicResNet18
-from utils import log_gate_usage, compute_flops
+from utils import log_gate_usage, compute_flops, get_sparsity_lambda
 import math
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -56,7 +56,7 @@ for epoch in range(3):
                 gate_count += 1
         if gate_count > 0:
             sparsity_penalty = sparsity_penalty / gate_count
-            loss += 0.01 * sparsity_penalty  # Adjust weight as needed
+            loss += get_sparsity_lambda(epoch) * sparsity_penalty  # Adjust weight as needed
 
         loss.backward()
         optimizer.step()

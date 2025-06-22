@@ -20,6 +20,10 @@ def compute_flops(model, input_res=(3, 32, 32)):
     flops = FlopCountAnalysis(model, dummy_input)
     return flops.total(), flops.by_module()
 
+def get_sparsity_lambda(epoch):
+    if epoch < 2: return 0.0
+    return min(0.01, (epoch - 2) * 0.005)
+
 # Deprecated, as this was used for static gates 
 def compute_gate_activation(model):
     gate_values = []
