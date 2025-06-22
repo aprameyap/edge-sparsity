@@ -5,6 +5,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from models.dynamic_resnet import DynamicResNet18
 from utils import log_gate_usage, compute_flops
+import math
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 usage_log = {}
@@ -19,10 +20,10 @@ trainloader = DataLoader(trainset, batch_size=64, shuffle=True)
 
 initial_tau = 1.0
 final_tau = 0.1
-anneal_rate = 0.5
+decay_rate = 0.8
 
 def get_tau(epoch):
-    return max(final_tau, initial_tau * (anneal_rate ** epoch))
+    return final_tau + (initial_tau - final_tau) * math.exp(-decay_rate * epoch)
 
 def set_tau(model, new_tau):
     for layer in [model.layer1, model.layer2, model.layer3, model.layer4]:
