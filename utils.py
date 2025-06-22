@@ -2,7 +2,7 @@ import torch
 from models.dynamic_resnet import GatedBlock 
 from fvcore.nn import FlopCountAnalysis
 
-def log_gate_usage(model):
+def log_gate_usage(model, usage_log, epoch):
     usage = {}
     for name, module in model.named_modules():
         if isinstance(module, GatedBlock) and hasattr(module, "gate_history"):
@@ -12,6 +12,8 @@ def log_gate_usage(model):
     print("Gate usage per block:")
     for name, val in usage.items():
         print(f"  {name}: {val:.4f}")
+
+    usage_log[epoch] = usage.copy()
 
 def compute_flops(model, input_res=(3, 32, 32)):
     dummy_input = torch.randn(1, *input_res)

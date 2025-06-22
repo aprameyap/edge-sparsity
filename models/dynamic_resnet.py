@@ -12,6 +12,7 @@ class GatedBlock(nn.Module):
         self.use_controller = use_controller
         self.tau = tau
         self.gate_history = []
+        self.gate_value_log = None  # for sparsity penalty
 
         if use_controller:
             self.controller = nn.Sequential(
@@ -25,20 +26,28 @@ class GatedBlock(nn.Module):
         residual = x if self.downsample is None else self.downsample(x)
 
         if self.use_controller:
-            logits = self.controller[0](x)  # (B, 1)
-            logits = self.controller[1](logits)  # (B, 2)
-            gate = gumbel_softmax(logits, tau=self.tau, hard=True)[:, 1:2]  # Use 2nd class for "activate"
+            logits = self.controller[0](x)
+            logits = self.controller[1](logits)
+            gate = gumbel_softmax(logits, tau=self.tau, hard=True)[:, 1:2]
             gate = gate.view(-1, 1, 1, 1)
             self.gate_history.append(gate.mean().item())
+
+            if gate.mean() < 0.01:
+                with torch.no_grad():
+                    out = residual
+            elif gate.mean() > 0.99:
+                out = self.block(x) + residual
+            else:
+                out = gate * self.block(x) + (1 - gate) * residual
         else:
             gate = torch.sigmoid(self.gate)
+            out = gate * self.block(x) + (1 - gate) * residual
 
-        return gate * self.block(x) + (1 - gate) * residual
+        return out
 
 class DynamicResNet18(nn.Module):
     def __init__(self, num_classes=10, use_controller=False, tau=1.0):
         super().__init__()
-        base_model = nn.Sequential(*list(nn.Sequential(*list(models.resnet18(weights=None).children()))[:-2]))
         model_layers = list(models.resnet18(weights=None).children())
 
         self.initial = nn.Sequential(model_layers[0], model_layers[1], model_layers[2], model_layers[3])
