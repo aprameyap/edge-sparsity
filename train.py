@@ -1,11 +1,19 @@
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader
 from models.dynamic_resnet import DynamicResNet18
 from utils import log_gate_usage, compute_flops, get_sparsity_lambda
 import math
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--use_kd', action='store_true', help='Enable knowledge distillation')
+parser.add_argument('--epochs', type=int, default=3)
+args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 usage_log = {}
@@ -31,21 +39,43 @@ def set_tau(model, new_tau):
             if hasattr(block, 'tau'):
                 block.tau = new_tau
 
-model = DynamicResNet18(use_controller=False, tau=initial_tau).to(device)
-criterion = nn.CrossEntropyLoss()
+def kd_loss(student_logits, teacher_logits, true_labels, alpha=0.7, T=4.0):
+    ce_loss = F.cross_entropy(student_logits, true_labels)
+    soft_loss = F.kl_div(
+        F.log_softmax(student_logits / T, dim=1),
+        F.softmax(teacher_logits / T, dim=1),
+        reduction='batchmean'
+    ) * (T * T)
+    return alpha * soft_loss + (1 - alpha) * ce_loss
+
+model = DynamicResNet18(use_controller=True, tau=initial_tau).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-for epoch in range(3):
+if args.use_kd:
+    teacher = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    teacher.fc = nn.Linear(512, 10)
+    teacher = teacher.to(device)
+    teacher.eval()
+else:
+    criterion = nn.CrossEntropyLoss()
+
+for epoch in range(args.epochs):
     print(f"\nStarting Epoch {epoch+1}")
     model.train()
     total, correct = 0, 0
 
     for batch_idx, (images, labels) in enumerate(trainloader):
         images, labels = images.to(device), labels.to(device)
-
         optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
+
+        student_outputs = model(images)
+
+        if args.use_kd:
+            with torch.no_grad():
+                teacher_outputs = teacher(images)
+            loss = kd_loss(student_outputs, teacher_outputs, labels)
+        else:
+            loss = criterion(student_outputs, labels)
 
         # Sparsity penalty
         sparsity_penalty = 0.0
@@ -55,13 +85,13 @@ for epoch in range(3):
                 sparsity_penalty += module.gate_value_log
                 gate_count += 1
         if gate_count > 0:
-            sparsity_penalty = sparsity_penalty / gate_count
-            loss += get_sparsity_lambda(epoch) * sparsity_penalty  # Adjust weight as needed
+            sparsity_penalty /= gate_count
+            loss += get_sparsity_lambda(epoch) * sparsity_penalty
 
         loss.backward()
         optimizer.step()
 
-        pred = outputs.argmax(1)
+        pred = student_outputs.argmax(1)
         correct += pred.eq(labels).sum().item()
         total += labels.size(0)
 
@@ -80,17 +110,11 @@ for epoch in range(3):
 
     model.eval()
     total_flops, _ = compute_flops(model)
-    print(f"[FLOPs] Dynamic Model: {total_flops/1e6:.2f} MFLOPs")
+    print(f"[FLOPs] Dynamic Model: {total_flops / 1e6:.2f} MFLOPs")
 
-import matplotlib.pyplot as plt
-
-# Extract all unique layer names
-all_layers = sorted(list(set(k for v in usage_log.values() for k in v)))
-
-# Create a plot per layer
+all_layers = sorted(set(k for v in usage_log.values() for k in v))
 for layer in all_layers:
-    x = []
-    y = []
+    x, y = [], []
     for epoch in sorted(usage_log.keys()):
         x.append(epoch)
         y.append(usage_log[epoch].get(layer, 0.0))
