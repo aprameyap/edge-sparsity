@@ -31,7 +31,7 @@ def set_tau(model, new_tau):
             if hasattr(block, 'tau'):
                 block.tau = new_tau
 
-model = DynamicResNet18(use_controller=True, tau=initial_tau).to(device)
+model = DynamicResNet18(use_controller=False, tau=initial_tau).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
